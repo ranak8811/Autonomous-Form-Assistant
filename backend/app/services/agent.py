@@ -5,7 +5,7 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolNode
+from langgraph.prebuilt import ToolNode, tools_condition
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.models import HCP, Product, Interaction
@@ -133,17 +133,16 @@ model = ChatGroq(
     temperature=0
 ).bind_tools(tools)
 
+# ... existing tools ...
+
 def call_model(state: AgentState):
     messages = state['messages']
     response = model.invoke(messages)
     return {"messages": [response]}
 
-def should_continue(state: AgentState):
-    messages = state['messages']
-    last_message = messages[-1]
-    if last_message.tool_calls:
-        return "tools"
-    return END
+def route_tools(state: AgentState):
+    """Determines whether to continue or call a tool."""
+    return tools_condition(state)
 
 # --- Graph Construction ---
 
@@ -153,7 +152,7 @@ workflow.add_node("agent", call_model)
 workflow.add_node("tools", tool_node)
 
 workflow.set_entry_point("agent")
-workflow.add_conditional_edges("agent", should_continue)
+workflow.add_conditional_edges("agent", route_tools)
 workflow.add_edge("tools", "agent")
 
 app_agent = workflow.compile()
