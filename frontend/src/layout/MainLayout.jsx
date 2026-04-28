@@ -4,21 +4,21 @@ import ChatPanel from '../components/ChatPanel';
 
 const MainLayout = () => {
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col font-sans text-gray-900">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
+    <div className="h-screen bg-gray-50 flex flex-col font-sans text-gray-900 overflow-hidden">
+      {/* Header - Fixed at top */}
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <h1 className="text-xl font-bold text-blue-900">Log HCP Interaction</h1>
       </header>
 
-      {/* Content */}
+      {/* Content - Fills remaining height */}
       <main className="flex-1 flex overflow-hidden p-6 gap-6">
-        {/* Left Panel - Form */}
-        <div className="flex-1 overflow-hidden">
+        {/* Left Panel - Form (Independently Scrollable if content is long) */}
+        <div className="flex-1 h-full overflow-hidden">
           <InteractionForm />
         </div>
 
-        {/* Right Panel - Chat */}
-        <div className="w-[400px] flex flex-col overflow-hidden">
+        {/* Right Panel - Chat (Independently Scrollable) */}
+        <div className="w-[450px] h-full flex flex-col overflow-hidden">
           <ChatPanel />
         </div>
       </main>

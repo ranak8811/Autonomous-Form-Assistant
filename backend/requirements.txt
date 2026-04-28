@@ -6,5 +6,5 @@ sqlalchemy
 pydantic
 langgraph
 langchain
-langchain-groq
+langchain-openai
 python-multipart

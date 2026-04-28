@@ -14,6 +14,6 @@ class Settings:
     
     DATABASE_URL: str = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
     
-    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY")
+    OPENROUTER_API_KEY: str = os.getenv("OPENROUTER_API_KEY")
 
 settings = Settings()

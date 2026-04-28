@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { addMessage } from '../features/chatSlice';
+import { addMessage, sendMessage } from '../features/chatSlice';
 
 const ChatPanel = () => {
   const [input, setInput] = useState('');
@@ -9,10 +9,10 @@ const ChatPanel = () => {
   const isLoading = useSelector((state) => state.chat.isLoading);
 
   const handleSend = () => {
-    if (!input.trim()) return;
-    dispatch(addMessage({ text: input, role: 'user' }));
+    if (!input.trim() || isLoading) return;
+    const userMessage = input;
     setInput('');
-    // Logic to call backend will be added in Step 6
+    dispatch(sendMessage({ message: userMessage }));
   };
 
   return (

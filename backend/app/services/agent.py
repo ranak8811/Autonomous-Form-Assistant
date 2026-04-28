@@ -1,24 +1,47 @@
 import os
 from typing import Annotated, TypedDict, List, Dict, Any, Optional
 from datetime import date, time
-from langchain_groq import ChatGroq
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langchain_core.tools import tool
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.graph.message import add_messages
 from app.core.config import settings
 from app.core.database import SessionLocal
 from app.models.models import HCP, Product, Interaction
-from sqlalchemy.orm import Session
 
 # --- State Definition ---
 
 class AgentState(TypedDict):
     """The state of our agent."""
-    messages: Annotated[List[BaseMessage], "The messages in the conversation"]
+    # add_messages ensures that new messages are appended to the list instead of replacing it
+    messages: Annotated[List[BaseMessage], add_messages]
     form_data: Dict[str, Any]
     available_hcps: List[Dict[str, Any]]
     available_products: List[Dict[str, Any]]
+
+# --- System Prompt ---
+SYSTEM_PROMPT = """You are an Autonomous CRM Assistant. You control a web form on the left side of the screen via tools.
+
+YOUR MISSION:
+1. Extract interaction details from user text and auto-fill the form.
+2. Perform surgical edits to specific form fields when requested.
+3. Answer questions about available HCPs (Doctors) and Products.
+
+STRICT RULES:
+- TOOL USAGE: You MUST use tools to perform actions. 
+- GETTING DATA: If asked "Who are the doctors?" or "What products?", call 'get_hcp_list' or 'get_product_list' IMMEDIATELY. Do not answer from memory.
+- LOGGING: If a user describes an interaction (e.g. "I met Dr. Smith..."), you MUST call 'log_interaction'.
+- EDITING: If a user wants to change one thing (e.g. "Change sentiment to positive"), you MUST call 'edit_interaction'.
+- SUBMITTING: If the user says "Save", "Submit", or "I'm done", you MUST call 'submit_interaction'.
+
+CONTEXT:
+Current Form State: {form_state}
+Available HCPs in DB: {hcp_list}
+Available Products in DB: {product_list}
+
+NEVER hallucinate data. If you don't know something, ask. If you have called a tool, tell the user what you updated."""
 
 # --- Tools Implementation ---
 
@@ -28,7 +51,7 @@ def get_hcp_list():
     db = SessionLocal()
     try:
         hcps = db.query(HCP).all()
-        return [{"id": h.id, "name": h.name, "specialty": h.specialty} for h in hcps]
+        return [{"name": h.name, "specialty": h.specialty} for h in hcps]
     finally:
         db.close()
 
@@ -38,7 +61,7 @@ def get_product_list():
     db = SessionLocal()
     try:
         products = db.query(Product).all()
-        return [{"id": p.id, "name": p.name} for p in products]
+        return [{"name": p.name} for p in products]
     finally:
         db.close()
 
@@ -46,8 +69,8 @@ def get_product_list():
 def log_interaction(
     hcp_name: Optional[str] = None,
     interaction_type: Optional[str] = None,
-    date_str: Optional[str] = None, # YYYY-MM-DD
-    time_str: Optional[str] = None, # HH:MM
+    date_str: Optional[str] = None, 
+    time_str: Optional[str] = None, 
     attendees: Optional[List[str]] = None,
     topics_discussed: Optional[str] = None,
     materials_shared: Optional[List[str]] = None,
@@ -56,13 +79,7 @@ def log_interaction(
     outcomes: Optional[str] = None,
     follow_up_actions: Optional[str] = None
 ):
-    """
-    Extracts information from a natural language prompt to populate the interaction form.
-    Use this when the user describes a new interaction they want to log.
-    """
-    # This tool is primarily a schema for the LLM to fill.
-    # The actual 'filling' happens by the LLM generating the arguments.
-    # We return the arguments so they can be merged into the form_data state.
+    """Call this when the user provides details about a meeting, call, or interaction to auto-fill the form."""
     return {
         "hcp_name": hcp_name,
         "interaction_type": interaction_type,
@@ -79,26 +96,17 @@ def log_interaction(
 
 @tool
 def edit_interaction(field_name: str, new_value: Any):
-    """
-    Updates a specific field in the current interaction form.
-    Use this when the user wants to correct or change a specific piece of information.
-    Field names can be: hcp_name, interaction_type, date, time, attendees, topics_discussed, 
-    materials_shared, samples_distributed, sentiment, outcomes, follow_up_actions.
-    """
+    """Call this to update exactly ONE specific field in the form when the user wants to correct a mistake."""
     return {field_name: new_value}
 
 @tool
 def submit_interaction(interaction_data: Dict[str, Any]):
-    """
-    Finalizes and saves the interaction form to the database.
-    Use this only when the user explicitly asks to 'save', 'submit', or 'finish' the logging process.
-    """
+    """Call this to save the finalized interaction data into the database."""
     db = SessionLocal()
     try:
-        # Resolve HCP name to ID
         hcp = db.query(HCP).filter(HCP.name == interaction_data.get("hcp_name")).first()
         if not hcp:
-            return f"Error: Could not find HCP named {interaction_data.get('hcp_name')}"
+            return f"Error: HCP '{interaction_data.get('hcp_name')}' not found. Please select a valid HCP."
         
         new_interaction = Interaction(
             hcp_id=hcp.id,
@@ -115,10 +123,10 @@ def submit_interaction(interaction_data: Dict[str, Any]):
         )
         db.add(new_interaction)
         db.commit()
-        return "Successfully saved the interaction to the database."
+        return "SUCCESS: Interaction has been saved to the database."
     except Exception as e:
         db.rollback()
-        return f"Error saving interaction: {str(e)}"
+        return f"DATABASE ERROR: {str(e)}"
     finally:
         db.close()
 
@@ -127,32 +135,35 @@ def submit_interaction(interaction_data: Dict[str, Any]):
 tools = [get_hcp_list, get_product_list, log_interaction, edit_interaction, submit_interaction]
 tool_node = ToolNode(tools)
 
-model = ChatGroq(
-    model="gemma2-9b-it",
-    groq_api_key=settings.GROQ_API_KEY,
+model = ChatOpenAI(
+    model="openai/gpt-oss-120b:free",
+    openai_api_key=settings.OPENROUTER_API_KEY,
+    openai_api_base="https://openrouter.ai/api/v1",
     temperature=0
 ).bind_tools(tools)
 
-# ... existing tools ...
-
 def call_model(state: AgentState):
-    messages = state['messages']
+    # Construct dynamic system prompt with current state
+    formatted_prompt = SYSTEM_PROMPT.format(
+        form_state=str(state['form_data']),
+        hcp_list=str(state['available_hcps']),
+        product_list=str(state['available_products'])
+    )
+    
+    # We create a clean list of messages for this specific call
+    # System Prompt + History
+    messages = [SystemMessage(content=formatted_prompt)] + state['messages']
+        
     response = model.invoke(messages)
     return {"messages": [response]}
-
-def route_tools(state: AgentState):
-    """Determines whether to continue or call a tool."""
-    return tools_condition(state)
 
 # --- Graph Construction ---
 
 workflow = StateGraph(AgentState)
-
 workflow.add_node("agent", call_model)
 workflow.add_node("tools", tool_node)
-
 workflow.set_entry_point("agent")
-workflow.add_conditional_edges("agent", route_tools)
+workflow.add_conditional_edges("agent", tools_condition)
 workflow.add_edge("tools", "agent")
 
 app_agent = workflow.compile()
