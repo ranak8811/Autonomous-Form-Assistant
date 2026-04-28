@@ -1,9 +1,9 @@
-const App = () => {
-  return (
-    <div>
-      <div>APP</div>
-    </div>
-  );
-};
+import MainLayout from './layout/MainLayout'
 
-export default App;
+function App() {
+  return (
+    <MainLayout />
+  )
+}
+
+export default App
