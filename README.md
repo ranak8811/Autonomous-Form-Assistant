@@ -61,7 +61,7 @@ An intelligent, stateful CRM assistant designed for Healthcare Representatives t
 │   │   ├── layout/       # Main Layout & Structure
 │   │   └── services/     # API Client logic
 │   └── package.json      # Node.js Dependencies
-└── materials/            # Presentation script & exhaustive test cases
+
 ```
 
 ---
@@ -109,10 +109,6 @@ npm run dev
 
 ---
 
-## 🧪 Testing the AI
-
-Navigate to the `materials/exhaustive_test_cases.txt` file for a detailed walkthrough of prompts.
-
 **Quick Test:**
 
 1. Type: _"Who are the doctors?"_ (Verify Tool 1)
@@ -132,17 +128,21 @@ _Software Engineer with a passion for AI-First products._
 
 _This project was built as a technical assignment for [HCP Interaction Module]._
 
-Who are the doctors in our system?
+---
 
-What products do we have?
+These are the prompts we can use whether the AI Assistant working or not:
 
-I had a meeting with Dr. Emily today at 2 PM. Dr. John and Nurse Joy were also there. We talked about Product Y market entry. The doctor was very
-interested, so we agreed to start a trial next month. I need to send the trial protocols by Monday. The overall vibe was positive.
+1. Who are the doctors in our system?
 
-Add Dr. Smith to the attendees.
+2. What products do we have?
 
-Actually, remove Dr. John and only keep Dr. Smith and Dr. Emily as attendees.
+3. I had a meeting with Dr. Emily today at 2 PM. Dr. John and Nurse Joy were also there. We talked about Product Y market entry. The doctor was very
+   interested, so we agreed to start a trial next month. I need to send the trial protocols by Monday. The overall vibe was positive.
 
-Change the time to 9 AM.
+4. Add Dr. Smith to the attendees.
 
-This looks good, please save it.
+5. Actually, remove Dr. John and only keep Dr. Smith and Dr. Emily as attendees.
+
+6. Change the time to 9 AM.
+
+7. This looks good, please save it.
